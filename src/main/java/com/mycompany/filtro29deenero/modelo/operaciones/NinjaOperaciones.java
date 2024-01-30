@@ -204,10 +204,13 @@ public class NinjaOperaciones {
     
     public boolean asignarMision( long ninjaId, long misionId, LocalDate fecha ){
         
-       #
+        if(!verificarAsignacion(ninjaId, misionId)){
+            System.out.println("el registro que intentas guardar ya existe");
+            return false;
+        }
      
         OperacionesDB.setConnection(ConexionDB.MySQLConnection());
-        String sentencia = "insert into mision_ninja (idNinja, idMision, fechaInicio, fechaFin) values( ? ,? ,? ) ;" ;
+        String sentencia = "insert into mision_ninja (idNinja, idMision, fechaInicio) values( ? ,? ,? ) ;" ;
         try(PreparedStatement ps = OperacionesDB.getConnection().prepareStatement(sentencia)){
             ps.setLong(1, ninjaId);
             ps.setLong(2, misionId);
@@ -230,6 +233,16 @@ public class NinjaOperaciones {
     
     public boolean asignarMisionComoCompletada( long ninjaId, long misionId, LocalDate fecha ){
         
+        if( verificarAsignacion(ninjaId, misionId) ){
+            System.out.println("la mision que quieres confirmar como completada no ha sido asignada a ese ninja");
+            return false;
+        }
+        
+        if( !verificarMisionCompletada(ninjaId, misionId)){
+            return false;
+        }
+        
+        
         OperacionesDB.setConnection(ConexionDB.MySQLConnection());
         String sentencia = "update mision_ninja set fechaFin = ? where idNinja = ? and  idMision  = ? ;" ;
         try(PreparedStatement ps = OperacionesDB.getConnection().prepareStatement(sentencia)){
@@ -244,12 +257,12 @@ public class NinjaOperaciones {
                 PreparedStatement psm = OperacionesDB.getConnection().prepareStatement(sentenciaMision);
                 psm.setLong(1, misionId);
                 ResultSet rsm = OperacionesDB.consultar_BD(psm);
-                
-                while(rsm.next()){
-                    ManejoArchivos.escribirArchivo( "archivoMisiones.txt", rsm.getString("nombre") + "/" + rsm.getString("descripcion")  );     
+                if(rsm != null){
+                    while(rsm.next()){
+                        ManejoArchivos.escribirArchivo( "archivoMisiones.txt", rsm.getString("nombre") + "/" + rsm.getString("descripcion")  );    
+                        return true;
+                    }                    
                 }
-                return true;
-                
             }else{
                 System.out.println("no se pudo insertar la informacion");
             }
@@ -267,5 +280,63 @@ public class NinjaOperaciones {
          ManejoArchivos.leerArchivo("archivoMisiones.txt");
          
      }
+     
+     
+     
+    
+    public boolean verificarAsignacion( long ninjaId, long misionId){
+
+        OperacionesDB.setConnection(ConexionDB.MySQLConnection());
+        String sentencia = "select * from mision_ninja" ;
+        try(PreparedStatement ps = OperacionesDB.getConnection().prepareStatement(sentencia)){
+            ResultSet rs =OperacionesDB.consultar_BD(ps);
+            if(rs!=null){
+                while (rs.next()) {
+
+                    if( ninjaId == rs.getLong("idNinja") && misionId == rs.getLong("idMision")){
+
+                        return false;
+                    }
+                }
+                return true;
+            }else{
+                System.out.println("no se puedo verificar la tabla mision_ninja");
+
+            }
+
+        }catch(Exception e ){
+            System.out.println(e.getMessage());
+
+        }
+        return false;
+    } 
+
+
+    public boolean verificarMisionCompletada( long ninjaId, long misionId ){
+
+        OperacionesDB.setConnection(ConexionDB.MySQLConnection());
+        String sentencia = "select fechaFin from mision_ninja where idNinja = ? and idMision = ?  ;" ;
+        try(PreparedStatement ps = OperacionesDB.getConnection().prepareStatement(sentencia)){
+            
+            ps.setLong(1,ninjaId);
+            ps.setLong(2, misionId);
+            ResultSet rs = OperacionesDB.consultar_BD(ps);
+            if(rs !=  null){
+                while( rs.next() ){    
+                    if( rs.getString("fechaFin") != null  ){
+                       System.out.println("este mision para este ninja ya esta completada");
+                       return false;
+                    }
+               } 
+               return true;                
+            }
+        }catch(Exception e ){
+            System.out.println(e.getMessage());
+
+        }
+        return false;
+    }
+
     
 }
+
